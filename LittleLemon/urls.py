@@ -23,4 +23,6 @@ urlpatterns = [
     path('api/', include('djoser.urls')),
     # Djoser endpoints for token generation (login/logout)
     path('api/', include('djoser.urls.authtoken')),
+    # Add 'users/' here to match the Coursera requirement
+    path('api/users/', include('djoser.urls')),
 ]
