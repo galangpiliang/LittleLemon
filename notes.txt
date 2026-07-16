@@ -1,0 +1,17 @@
+=== LITTLE LEMON API USER CREDENTIALS ===
+
+1. SUPERUSER / ADMIN
+   - Username: admin
+   - Password: admin
+
+2. MANAGER GROUP USER
+   - Username: UserManager
+   - Password: 123123!@#
+
+3. DELIVERY CREW GROUP USER
+   - Username: UserDelivery
+   - Password: 123123!@#
+
+4. STANDARD CUSTOMER
+   - Username: UserCustomer
+   - Password: 123123!@#
