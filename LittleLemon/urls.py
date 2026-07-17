@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from debug_toolbar.toolbar import debug_toolbar_urls
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -25,4 +26,5 @@ urlpatterns = [
     path('api/', include('djoser.urls.authtoken')),
     # Add 'users/' here to match the Coursera requirement
     path('api/users/', include('djoser.urls')),
-]
+    path('api/groups/', include('LittleLemonAPI.urls'))
+] + debug_toolbar_urls()
