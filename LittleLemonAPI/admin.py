@@ -1,9 +1,16 @@
 from django.contrib import admin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin
+from .models import Category, MenuItem, Cart, Order, OrderItem
 
 # 1. Unregister the default User configuration
 admin.site.unregister(User)
+admin.site.unregister(Group)
+admin.site.register(Category)
+admin.site.register(MenuItem)
+admin.site.register(Cart)
+admin.site.register(Order)
+admin.site.register(OrderItem)
 
 # 2. Create a custom configuration class
 class CustomUserAdmin(UserAdmin):
