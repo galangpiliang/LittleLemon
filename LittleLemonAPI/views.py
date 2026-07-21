@@ -1,10 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.reverse import reverse
-from rest_framework.permissions import BasePermission, AllowAny
+from rest_framework.permissions import BasePermission, AllowAny, SAFE_METHODS
 from rest_framework.response import Response
 from django.contrib.auth.models import User, Group
-from .serializers import UserSerializer, GroupSerializer
+from .serializers import UserSerializer, GroupSerializer, MenuItemSerializer
+from .models import MenuItem
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -18,6 +19,12 @@ def api_root(request, format=None):
 
 class IsManager(BasePermission):
     def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.groups.filter(name='Manager').exists()
+
+class IsManagerOrReadOnly(BasePermission):
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return request.user and request.user.is_authenticated
         return request.user.is_authenticated and request.user.groups.filter(name='Manager').exists()
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -43,7 +50,7 @@ class ManagerGroupViewSet(viewsets.ModelViewSet):
         manager_group, created = Group.objects.get_or_create(name='Manager')
         user.groups.add(manager_group)
 
-        return Response({'message': f'User {username} added to Manager group.'}, status=status.HTTP_200_OK)
+        return Response({'message': f'User {username} added to Manager group.'}, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, pk=None):       
         try:
@@ -60,7 +67,7 @@ class ManagerGroupViewSet(viewsets.ModelViewSet):
             return Response({'error': 'User is not in the Manager group.'}, status=status.HTTP_400_BAD_REQUEST)
         
         user.groups.remove(manager_group)
-        return Response({'message': f'User {user.username} removed from Manager group.'}, status=status.HTTP_200_OK)
+        return Response({'message': f'User {user.username} removed from Manager group.'}, status=status.HTTP_200_SUCCESS)
 
 class DeliveryCrewGroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsManager]
@@ -81,7 +88,7 @@ class DeliveryCrewGroupViewSet(viewsets.ModelViewSet):
         delivery_crew_group, created = Group.objects.get_or_create(name='Delivery crew')
         user.groups.add(delivery_crew_group)
 
-        return Response({'message': f'User {username} added to Delivery crew group.'}, status=status.HTTP_200_OK)
+        return Response({'message': f'User {username} added to Delivery crew group.'}, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, pk=None):       
         try:
@@ -98,4 +105,9 @@ class DeliveryCrewGroupViewSet(viewsets.ModelViewSet):
             return Response({'error': 'User is not in the Delivery crew group.'}, status=status.HTTP_400_BAD_REQUEST)
         
         user.groups.remove(delivery_crew_group)
-        return Response({'message': f'User {user.username} removed from Delivery crew group.'}, status=status.HTTP_200_OK)
+        return Response({'message': f'User {user.username} removed from Delivery crew group.'}, status=status.HTTP_200_SUCCESS)
+
+class MenuItemViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsManagerOrReadOnly]
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
