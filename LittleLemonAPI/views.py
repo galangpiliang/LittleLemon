@@ -1,11 +1,12 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.reverse import reverse
-from rest_framework.permissions import BasePermission, AllowAny, SAFE_METHODS
+from rest_framework.permissions import BasePermission, AllowAny, SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth.models import User, Group
-from .serializers import UserSerializer, GroupSerializer, MenuItemSerializer
-from .models import MenuItem
+from .serializers import UserSerializer, GroupSerializer, MenuItemSerializer, CartSerializer
+from .models import MenuItem, Cart
+from django.db import IntegrityError
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -15,6 +16,8 @@ def api_root(request, format=None):
         'groups': reverse('groups-list', request=request, format=format),
         'manager-users': reverse('manager-users-list', request=request, format=format),
         'delivery-crew-users': reverse('delivery-crew-users-list', request=request, format=format),
+        'menu-items': reverse('menu-items-list', request=request, format=format),
+        'cart': reverse('cart-list', request=request, format=format),
     })
 
 class IsManager(BasePermission):
@@ -111,3 +114,52 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     permission_classes = [IsManagerOrReadOnly]
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
+
+class CartViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CartSerializer
+
+    def get_queryset(self):
+        return Cart.objects.filter(user=self.request.user)
+
+    def list(self, request):
+        cart_items = self.get_queryset()
+        serializer = self.serializer_class(cart_items, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        menuitem_id = request.data.get('menuitem_id')
+        quantity = request.data.get('quantity')
+
+        if not menuitem_id or not quantity:
+            return Response({'error': 'Menu item ID and quantity are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            menuitem = MenuItem.objects.get(id=menuitem_id)
+        except MenuItem.DoesNotExist:
+            return Response({'error': 'Menu item does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            quantity = int(quantity)
+        except ValueError:
+            return Response({'error': 'Quantity must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        unit_price = menuitem.price
+        total_price = unit_price * quantity
+
+        try:
+            cart_item = Cart.objects.create(
+                user=request.user,
+                menuitem=menuitem,
+                quantity=quantity,
+                unit_price=unit_price,
+                price=total_price
+            )
+        except IntegrityError:
+            return Response({'error': 'This menu item is already in the cart. Please update the quantity instead.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': f'Menu item {menuitem.title} added to cart.'}, status=status.HTTP_201_CREATED)
+
+    def destroy_all(self, request):
+        Cart.objects.filter(user=request.user).delete()
+        return Response({'message': 'All items removed from cart.'}, status=status.HTTP_204_NO_CONTENT)

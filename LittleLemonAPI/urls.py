@@ -1,5 +1,5 @@
 from django.urls import include, path
-from .views import ManagerGroupViewSet, DeliveryCrewGroupViewSet, api_root, GroupViewSet, MenuItemViewSet
+from .views import ManagerGroupViewSet, DeliveryCrewGroupViewSet, api_root, GroupViewSet, MenuItemViewSet, CartViewSet
 from debug_toolbar.toolbar import debug_toolbar_urls
 
 urlpatterns = [
@@ -66,5 +66,15 @@ urlpatterns = [
             'delete': 'destroy',
         }), 
         name='menu-items-detail'
+    ),
+
+    path(
+        'cart/menu-items', 
+        CartViewSet.as_view({
+            'get': 'list',
+            'post': 'create',
+            'delete': 'destroy_all',
+        }), 
+        name='cart-list'
     ),
 ]
