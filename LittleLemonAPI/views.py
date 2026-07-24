@@ -4,9 +4,10 @@ from rest_framework.reverse import reverse
 from rest_framework.permissions import BasePermission, AllowAny, SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth.models import User, Group
-from .serializers import UserSerializer, GroupSerializer, MenuItemSerializer, CartSerializer
-from .models import MenuItem, Cart
+from .serializers import UserSerializer, GroupSerializer, MenuItemSerializer, CartSerializer, OrderSerializer, OrderItemSerializer
+from .models import MenuItem, Cart, Order, OrderItem
 from django.db import IntegrityError
+from django.utils import timezone
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -18,6 +19,7 @@ def api_root(request, format=None):
         'delivery-crew-users': reverse('delivery-crew-users-list', request=request, format=format),
         'menu-items': reverse('menu-items-list', request=request, format=format),
         'cart': reverse('cart-list', request=request, format=format),
+        'orders': reverse('orders-list', request=request, format=format),
     })
 
 class IsManager(BasePermission):
@@ -163,3 +165,72 @@ class CartViewSet(viewsets.ModelViewSet):
     def destroy_all(self, request):
         Cart.objects.filter(user=request.user).delete()
         return Response({'message': 'All items removed from cart.'}, status=status.HTTP_204_NO_CONTENT)
+
+class OrderViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.groups.filter(name='Manager').exists():
+            return Order.objects.all()
+        elif user.groups.filter(name='Delivery crew').exists():
+            return Order.objects.filter(delivery_crew=user)
+        else:
+            return Order.objects.filter(user=user)
+
+    def list(self, request):
+        orders = self.get_queryset()
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, pk=None):
+        try:
+            order = self.get_queryset().get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        order_items = OrderItem.objects.filter(order=order)
+
+        serializer = OrderItemSerializer(order_items, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        cart_items = Cart.objects.filter(user=request.user)
+        if not cart_items.exists():
+            return Response({'error': 'Cart is empty. Cannot create order.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_price = sum(item.price for item in cart_items)
+        order = Order.objects.create(
+            user=request.user,
+            total=total_price,
+            date=timezone.now().date(),
+        )
+
+        order_items = [
+            OrderItem(
+                order=order,
+                menuitem=item.menuitem,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                price=item.price
+            ) for item in cart_items
+        ]
+        OrderItem.objects.bulk_create(order_items)
+
+        serializer = self.serializer_class(order)
+        cart_items.delete()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, pk=None):
+        user = self.request.user
+        if user.groups.filter(name='Manager').exists():
+            order = self.get_queryset().filter(pk=pk).first()
+            if not order:
+                return Response({'error': 'Order does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+            
+            order.delete()
+            return Response({'message': 'Order deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({'error': 'You do not have permission to delete this order.'}, status=status.HTTP_403_FORBIDDEN)

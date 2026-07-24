@@ -40,18 +40,18 @@ class CartSerializer(serializers.ModelSerializer):
 
         read_only_fields = ['unit_price', 'price']
 
-class OrderSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    delivery_crew = UserSerializer(read_only=True)
-
-    class Meta:
-        model = Order
-        fields = ['id', 'user', 'delivery_crew', 'status', 'total', 'date']
-
 class OrderItemSerializer(serializers.ModelSerializer):
-    order = OrderSerializer(read_only=True)
-    menuitem = MenuItemSerializer(read_only=True)
+    menuitem = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'order', 'menuitem', 'quantity', 'unit_price', 'price'] 
+        fields = ['id', 'menuitem', 'quantity', 'unit_price', 'price'] 
+
+class OrderSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    order_items = OrderItemSerializer(read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'delivery_crew', 'status', 'total', 'date', 'order_items']
+        read_only_fields = ['total', 'date']

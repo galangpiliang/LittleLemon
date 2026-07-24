@@ -15,3 +15,9 @@
 4. STANDARD CUSTOMER
    - Username: UserCustomer
    - Password: 123123!@#
+
+=== COURSERA LEARNING NOTES ===
+
+1. permission_classes goes at the top of the class. Never put it inside a function. Use if statements for function-level security.
+2. get_queryset is mandatory. A ModelViewSet needs this (or a queryset variable) so it knows which database table to use.
+3. Serializers translate Python to JSON. You must pass database objects through a serializer before returning a Response. (Remember: use many=True for lists).
